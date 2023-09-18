@@ -1,5 +1,5 @@
 [package]
-name = "rinha"
+name = "rinha-backend-rust"
 version = "0.1.0"
 edition = "2021"
 
