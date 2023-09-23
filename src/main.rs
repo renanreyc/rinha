@@ -1,19 +1,22 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{sync::Arc, env, net::SocketAddr};
 
 use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
-    Router, extract::{State, Path}, Json,
+    Router, extract::{State, Path, Query}, Json,
 };
+use persistence::PostgresRepository;
 use serde::{Serialize, Deserialize};
-use time::{Date, macros::date};
-use tokio::sync::{RwLock};
+use time::{Date};
+// use tokio::sync::{RwLock};
 use uuid::Uuid;
+
+mod persistence;
 
 time::serde::format_description!(date_format, Date, "[year]-[month]-[day]");
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, sqlx::FromRow)]
 pub struct Person {
     pub id: Uuid,
     #[serde(rename = "nome")]
@@ -91,28 +94,22 @@ pub struct NewPerson {
     pub stack: Option<Vec<Tech>>,
 }
 
-type AppState = Arc<RwLock<HashMap<Uuid, Person>>>;
+type AppState = Arc<PostgresRepository>;
 
 #[tokio::main] //macros
 async fn main() {
     
-    let mut people: HashMap<Uuid, Person> = HashMap::new();
+    let port = env::var("PORT")
+        .ok()
+        .and_then(|port| port.parse::<u16>().ok())
+        .unwrap_or(9999);
 
-    // let id = Uuid::now_v7();
+    let database_url = env::var("DATABASE_URL")
+        .unwrap_or(String::from("postgres://rinha:rinha@localhost:5432/rinha"));
 
-    let person = Person {
-        id: Uuid::now_v7(),
-        name: String::from("Renan Rey"),
-        nick: String::from("rey"),
-        birth_date: date!(1996 - 07 - 04),
-        stack: None, 
-    };
-
-    println!("{}", person.id);
-
-    people.insert(person.id, person);
-
-    let app_state = Arc::new(RwLock::new(people));
+    let repo = PostgresRepository::connect(database_url).await;
+        
+    let app_state = Arc::new(repo);
     
     // build our application with a single route
     let app = Router::new()
@@ -123,14 +120,26 @@ async fn main() {
         .with_state(app_state);
 
     // run it with hyper on localhost:3000
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
+    axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], port)))
         .serve(app.into_make_service())
         .await
         .unwrap();
 }
 
-async fn search_people(state: State<AppState>) -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "Busca de Pessoas")
+#[derive(Deserialize)]
+struct PersonSearchQuery {
+    #[serde(rename= "t")]
+    query: String,
+}
+
+async fn search_people(
+    State(people): State<AppState>, 
+    Query(PersonSearchQuery {query}): Query<PersonSearchQuery>,
+) -> impl IntoResponse {
+    match people.search_people(query).await {
+        Ok(person) => Ok(Json(person)),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR)
+    }
 }
 
 async fn find_person(
@@ -138,9 +147,10 @@ async fn find_person(
     Path(person_id): Path<Uuid>,
 ) -> impl IntoResponse {
 
-    match people.read().await.get(&person_id) {
-        Some(person) => Ok(Json(person.clone())),
-        None => Err(StatusCode::NOT_FOUND),
+    match people.find_person(person_id).await {
+        Ok(Some(person)) => Ok(Json(person)),
+        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
@@ -149,38 +159,21 @@ async fn create_person(
     Json(new_person): Json<NewPerson>,
 ) -> impl IntoResponse { // ) -> Result<(StatusCode, Json<Person>), StatusCode> {
 
-    // if new_person.name.0.len() > 100 || new_person.nick.len() > 32 {
-    //     return Err(StatusCode::UNPROCESSABLE_ENTITY)
-    // }
-
-    // if let Some(ref stack) = new_person.stack {
-    //     if stack.iter().any(|tech| tech.len() > 32) {
-    //         return Err(StatusCode::UNPROCESSABLE_ENTITY)
-    //     }
-    // }
-
-    let id = Uuid::now_v7();
-    let person = Person {
-        id,
-        name: new_person.name.0,
-        birth_date: new_person.birth_date,
-        nick: new_person.nick.0,
-        stack: new_person
-            .stack
-            .map(|stack| stack.into_iter().map(String::from).collect()),
-    };
-
-    people.write().await.insert(id, person.clone());
-
-    (StatusCode::CREATED, Json(person))
-
+    match people.create_person(new_person).await {
+        Ok(person) => Ok((StatusCode::CREATED, Json(person))),
+        Err(sqlx::Error::Database(err)) if err.is_unique_violation() => {
+                Err(StatusCode::UNPROCESSABLE_ENTITY)    
+        }
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR)
+    }
 }
 
 async fn count_people(
     State(people): State<AppState>, 
 ) -> impl IntoResponse {
-    let count = people.read().await.len();
-
-    (StatusCode::NOT_FOUND, Json(count))
+    match people.count_people().await {
+        Ok(count) => Ok(Json(count)),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 
 }
