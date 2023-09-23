@@ -20,14 +20,17 @@ impl PostgresRepository {
     }
 
     pub async fn find_person(&self, id: Uuid) -> Result<Option<Person>, sqlx::Error> {
-        sqlx::query_as("
-        SELECT id, name, nick, birth_date, stack
-        FROM people
-        WHERE id = $1
-        ",
-        ).bind(id)
+        sqlx::query_as(
+            "
+            SELECT id, name, nick, birth_date, stack
+            FROM people
+            WHERE id = $1
+            ",
+        )
+        .bind(id)
         .fetch_optional(&self.pool)
         .await
+        
         
     }
 
