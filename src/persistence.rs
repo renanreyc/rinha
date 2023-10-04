@@ -54,13 +54,16 @@ impl PostgresRepository {
     }
 
     pub async fn search_people(&self, query: String) -> Result<Vec<Person>, sqlx::Error> {
-        sqlx::query_as("
-        SELECT id, name, nick, birth_date, stack
-        FROM people
-        WHERE to_ts_query('people', $1) @@ search
-        LIMIT 50
-        ",
-        ).bind(query)
+        sqlx::query_as!(
+            Person, 
+            "
+            SELECT id, name, nick, birth_date, stack
+            FROM people
+            WHERE search ILIKE $1
+            LIMIT 50
+            ",
+            format!("%{query}%"),
+        )
         .fetch_all(&self.pool)
         .await
     }
