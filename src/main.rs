@@ -13,6 +13,7 @@ use time::{Date};
 use uuid::Uuid;
 
 mod persistence;
+mod macros_extra;
 
 time::serde::format_description!(date_format, Date, "[year]-[month]-[day]");
 
@@ -28,41 +29,33 @@ pub struct Person {
     pub stack: Option<Vec<String>>,
 }
 
-#[derive(Clone, Deserialize)]
-#[serde(try_from = "String")]
-pub struct PersonName(String);
+macro_rules! new_string_type {
+    ($type: ident, max_lengh = $max_length:expr, error = $error_message:expr) => {
+        #[derive(Clone, Deserialize)]
+        #[serde(try_from = "String")]
+        pub struct $type(String);
 
-
-impl TryFrom<String> for PersonName {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.len() <= 100 {
-            Ok(PersonName(value))
-        } else {
-            Err("name is too big")
+        impl TryFrom<String> for $type {
+            type Error = &'static str;
+        
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                if value.len() <= $max_length {
+                    Ok($type(value))
+                } else {
+                    Err($error_message)
+                }
+            }
         }
-    }
+    };    
 }
 
-#[derive(Clone, Deserialize)]
-#[serde(try_from = "String")]
-pub struct Nick(String);
+new_string_type!(PersonName, max_lengh = 100, error = "name is too big");
+new_string_type!(Nick, max_lengh = 32, error = "nick is too big");
 
-impl TryFrom<String> for Nick {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.len() <= 32 {
-            Ok(Self(value))
-        } else {
-            Err("nick is too big")
-        }
-    }
-}
 
 #[derive(Clone, Deserialize)]
 #[serde(try_from = "String")]
+
 pub struct Tech(String);
 
 impl TryFrom<String> for Tech {
