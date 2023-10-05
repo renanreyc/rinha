@@ -1002,6 +1002,7 @@ name = "rinha-backend-rust"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "bytes",
  "serde",
  "serde_json",
  "sqlx",

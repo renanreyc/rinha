@@ -2,7 +2,7 @@
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use uuid::Uuid;
 
-use crate::models::my_models::{Person, NewPerson};
+use crate::{Person, NewPerson};
 
 pub struct PostgresRepository {
     pool: PgPool,
@@ -30,7 +30,8 @@ impl PostgresRepository {
         .bind(id)
         .fetch_optional(&self.pool)
         .await
-            
+        
+        
     }
 
     pub async fn create_person(&self, new_person: NewPerson) -> Result<Person, sqlx::Error> {
@@ -41,8 +42,8 @@ impl PostgresRepository {
         ",
         )
         .bind(Uuid::now_v7())
-        .bind(new_person.name.as_str())
-        .bind(new_person.nick.as_str())
+        .bind(new_person.name.0)
+        .bind(new_person.nick.0)
         .bind(new_person.birth_date)
         .bind(new_person
             .stack
