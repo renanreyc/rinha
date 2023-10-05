@@ -40,12 +40,20 @@ pub async fn create_person(
     }
 }
 
+
 pub async fn count_people(
     State(people): State<AppState>, 
 ) -> impl IntoResponse {
+    println!("Received a request for /contagem-pessoas");
     
     match people.count_people().await {
-        Ok(count) => Ok(Json(count)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Ok(count) => {
+        println!("Count: {}", count);
+            Ok(Json(count))
+        },
+        Err(_) => {
+            eprintln!("An error occurred while counting people"); 
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        },
     }
 }

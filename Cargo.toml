@@ -1,5 +1,5 @@
 [package]
-name = "rinha-backend-rust"
+name = "rinha_backend_rust"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,6 +12,7 @@ serde = { version = "1.0.188", features = ["derive"]}
 serde_json = "1.0.107"
 sqlx = {version = "0.7.1", features = ["postgres", "runtime-tokio", "time", "uuid", "macros"] }
 time = { version = "0.3.28", features = ["macros", "serde", "formatting", "parsing"] }
+warp = "0.3"
 tokio = { version = "1.32.0", features = ["full"] }
 uuid = { version = "1.4.1", features = [
     

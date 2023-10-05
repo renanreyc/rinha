@@ -34,6 +34,11 @@ impl PostgresRepository {
     }
 
     pub async fn create_person(&self, new_person: NewPerson) -> Result<Person, sqlx::Error> {
+        print!("teste 1");
+        print!("{}", new_person.name.as_str());
+        print!("{}", new_person.nick.as_str());
+        print!("{}", new_person.birth_date);
+
         sqlx::query_as("
         INSERT INTO people (id, name, nick, birth_date, stack)
         VALUES ($1, $2, $3, $4, $5)
@@ -67,10 +72,10 @@ impl PostgresRepository {
         .await
     }
 
-    pub async fn count_people(&self) -> Result<i32, sqlx::Error> {
+    pub async fn count_people(&self) -> Result<i64, sqlx::Error> {
         sqlx::query("SELECT count(*)FROM people")
             .fetch_one(&self.pool)
             .await
-            .map(|row| row.get(0))
+            .map(|row| row.get(0))        
     }
 }
